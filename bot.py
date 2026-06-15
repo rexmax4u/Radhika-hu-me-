@@ -14,8 +14,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = os.getenv("8651316324:AAF0d_E19V5ihnl8_n05VmG4MbS4fCPTYgo")
-OPENAI_API_KEY = os.getenv("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")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
