@@ -15,9 +15,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Yahan humne GROQ_API_KEY set kar di hai
+GROQ_API_KEY = os.getenv("GROQ_API_KEY") 
 
-openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+# Groq API ko OpenAI library ke through hi call kar rahe hain (Yeh magic hai!)
+openai_client = AsyncOpenAI(
+    api_key=GROQ_API_KEY,
+    base_url="https://api.groq.com/openai/v1"
+)
 
 RADHIKA_SYSTEM_PROMPT = """
 Tu Radhika hai — ek zabardast, smart aur dil se caring Telegram group ki jaan!
@@ -66,7 +71,7 @@ RANDOM_REPLIES = [
 async def get_radhika_reply(user_message: str, user_name: str) -> str:
     try:
         response = await openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="llama3-8b-8192",  # Yahan model change kar diya hai Groq ke free Llama-3 par
             messages=[
                 {"role": "system", "content": RADHIKA_SYSTEM_PROMPT},
                 {"role": "user", "content": f"{user_name} ne kaha: {user_message}"}
@@ -76,7 +81,7 @@ async def get_radhika_reply(user_message: str, user_name: str) -> str:
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        logger.error(f"OpenAI Error: {e}")
+        logger.error(f"Groq API Error: {e}")
         return random.choice([
             "😅 Thodi der baad baat karo — Radhika busy hai abhi!",
             "😂 Signal nahi aa raha tha — dobara bolo!",
@@ -172,7 +177,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_type in ["group", "supergroup"]:
         bot_username = context.bot.username
         
-        # 1. Sabse pehle check: Kya bot ko tag ya reply kiya gaya hai?
         is_reply_to_bot = (
             update.message.reply_to_message and
             update.message.reply_to_message.from_user and
@@ -189,23 +193,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(reply)
             return
 
-        # 2. Check: Kya kisi ne specially RADHIKA word likha hai?
         if "RADHIKA" in text.upper():
             await update.message.reply_text(random.choice(RADHIKA_TRIGGERS))
             return
 
-        # 3. AUTO-REPLY LOGIC: Bina tag wali casual baaton ke liye (Good morning, hey, etc.)
         greetings = ["good morning", "gm", "good night", "gn", "good afternoon", "hey", "hi", "hello", "welcome", "kese ho", "kya haal"]
         words = text_lower.split()
         
-        # Agar message 6 words se chota hai aur usme koi greeting hai, toh hi reply karegi
         if len(words) <= 6 and any(greet in text_lower for greet in greetings):
             prompt = f"User '{user_name}' ne group mein '{text}' bola hai. As Radhika, iska ek bahut chota, cute aur casual Hinglish auto-reply do (maximum 1-2 line)."
             reply = await get_radhika_reply(prompt, user_name)
             await update.message.reply_text(reply)
             return
 
-    # 4. Agar chat private (DM) hai, toh full reply karegi
     elif chat_type == "private":
         reply = await get_radhika_reply(text, user_name)
         await update.message.reply_text(reply)
