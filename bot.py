@@ -163,21 +163,23 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
+        
     text = update.message.text
+    text_lower = text.lower()
     user_name = update.effective_user.first_name or "yaar"
     chat_type = update.effective_chat.type
 
     if chat_type in ["group", "supergroup"]:
-        if "RADHIKA" in text.upper():
-            await update.message.reply_text(random.choice(RADHIKA_TRIGGERS))
-            return
         bot_username = context.bot.username
+        
+        # 1. Sabse pehle check: Kya bot ko tag ya reply kiya gaya hai?
         is_reply_to_bot = (
             update.message.reply_to_message and
             update.message.reply_to_message.from_user and
             update.message.reply_to_message.from_user.is_bot
         )
         is_mentioned = f"@{bot_username}" in text if bot_username else False
+        
         if is_reply_to_bot or is_mentioned:
             clean_text = text.replace(f"@{bot_username}", "").strip()
             if not clean_text:
@@ -185,6 +187,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             reply = await get_radhika_reply(clean_text, user_name)
             await update.message.reply_text(reply)
+            return
+
+        # 2. Check: Kya kisi ne specially RADHIKA word likha hai?
+        if "RADHIKA" in text.upper():
+            await update.message.reply_text(random.choice(RADHIKA_TRIGGERS))
+            return
+
+        # 3. AUTO-REPLY LOGIC: Bina tag wali casual baaton ke liye (Good morning, hey, etc.)
+        greetings = ["good morning", "gm", "good night", "gn", "good afternoon", "hey", "hi", "hello", "welcome", "kese ho", "kya haal"]
+        words = text_lower.split()
+        
+        # Agar message 6 words se chota hai aur usme koi greeting hai, toh hi reply karegi
+        if len(words) <= 6 and any(greet in text_lower for greet in greetings):
+            prompt = f"User '{user_name}' ne group mein '{text}' bola hai. As Radhika, iska ek bahut chota, cute aur casual Hinglish auto-reply do (maximum 1-2 line)."
+            reply = await get_radhika_reply(prompt, user_name)
+            await update.message.reply_text(reply)
+            return
+
+    # 4. Agar chat private (DM) hai, toh full reply karegi
     elif chat_type == "private":
         reply = await get_radhika_reply(text, user_name)
         await update.message.reply_text(reply)
